@@ -1,0 +1,18 @@
+export const PageRoutes = {
+  BUSINESS_PROFILE: "/business-profile",
+  BUSINESS_PROFILE_COMPANY_DETAILS: "/business-profile/company-details",
+  BUSINESS_PROFILE_COMPANY_DETAILS_INFO: "/business-profile/company-details/information",
+  BUSINESS_PROFILE_COMPANY_DETAILS_ADDRESS: "/business-profile/company-details/address",
+  BUSINESS_PROFILE_COMPANY_DETAILS_FINANCIALS: "/business-profile/company-details/financials",
+  BUSINESS_PROFILE_COMPANY_DETAILS_OWNERSHIP: "/business-profile/company-details/ownership",
+  BUSINESS_PROFILE_TEAM_MEMBERS: "/business-profile/team-members",
+  BUSINESS_PROFILE_COMPANY_DOCUMENTS: "/business-profile/documents",
+  BUSINESS_PROFILE_COMPANY_BILLING: "/business-profile/billing",
+  FUNDING: "/funding",
+  FUNDING_INVESTOR_OPPORTUNITIES: "/funding/investor-opportunities",
+  FUNDING_INVESTOR_OPPORTUNITIES_SAVED: "/funding-saved-opportunities/investor-opportunities",
+  FUNDING_MELANINKAPITAL_LOANS: "/funding/melaninkapital-loans",
+  FUNDING_MELANINKAPITAL_LOANS_SAVED: "/funding-saved-opportunities/melaninkapital-loans",
+  FUNDING_PARTNER_LOANS: "/funding/partner-loans",
+  FUNDING_PARTNER_LOANS_SAVED: "/funding-saved-opportunities/partner-loans",
+} as const;
