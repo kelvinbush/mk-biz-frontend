@@ -1,5 +1,4 @@
 "use client";
-import { withAuth } from "@/components/auth/RequireAuth";
 import DashboardHeader from "@/components/dashboard/dashboard-header";
 import DashboardOpportunities from "@/components/dashboard/dashboard-opportunities";
 import { setTitle } from "@/lib/redux/features/top-bar.slice";
@@ -20,4 +19,4 @@ function Home() {
   );
 }
 
-export default withAuth(Home);
+export default Home;

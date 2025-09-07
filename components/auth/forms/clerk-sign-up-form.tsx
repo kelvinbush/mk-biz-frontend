@@ -438,7 +438,7 @@ export function ClerkSignUpForm() {
 
   const handleVerificationSuccess = () => {
     // Redirect to dashboard or next step
-    router.push("/dashboard");
+    router.push("/");
   };
 
   const handleResendCode = () => {

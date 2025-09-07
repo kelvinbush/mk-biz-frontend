@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { logOut } from "@/lib/redux/features/authSlice";
+import { useAuth } from "@clerk/nextjs";
 
 interface LogoutModalContextType {
   showLogoutModal: () => void;
@@ -23,14 +24,12 @@ export function LogoutModalProvider({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const dispatch = useAppDispatch();
-
+ const { signOut } = useAuth()
   const showLogoutModal = () => setIsOpen(true);
   const hideLogoutModal = () => setIsOpen(false);
 
-  const handleLogout = () => {
-    // Add your logout logic here
-    dispatch(logOut());
+  const handleLogout = async () => {
+    await signOut()
     hideLogoutModal();
   };
 
