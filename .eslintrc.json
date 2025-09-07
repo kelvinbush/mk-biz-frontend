@@ -4,10 +4,10 @@
     "next/typescript"
   ],
   "rules": {
-    "@typescript-eslint/no-explicit-any": ["ignore", {
-      "ignoreRestArgs": true,
-      "fixToUnknown": false
-    }],
-    "@typescript-eslint/ban-ts-comment": "warn"
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/ban-ts-comment": "warn",
+    "quotes": ["warn", "double", { "avoidEscape": true, "allowTemplateLiterals": true }],
+    "jsx-quotes": ["warn", "prefer-double"],
+    "prefer-template": "warn"
   }
 }
