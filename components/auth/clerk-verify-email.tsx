@@ -110,7 +110,7 @@ const VerifyEmail = () => {
       await setActive({ session: completeSignUp.createdSessionId });
       
       // Redirect to the dashboard or next step
-      router.push("/");
+      router.push("/dashboard");
       toast.success("Email verified successfully");
     } catch (err: any) {
       console.error("Error during email verification:", err);

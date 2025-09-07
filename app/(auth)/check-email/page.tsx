@@ -1,9 +1,9 @@
 "use client";
 import React from "react";
-import CheckEmail from "@/components/auth/check-email";
+import ClerkCheckEmail from "@/components/auth/clerk-check-email";
 
 const Page = () => {
-  return <CheckEmail />;
+  return <ClerkCheckEmail />;
 };
 
 export default Page;

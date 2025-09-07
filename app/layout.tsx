@@ -9,6 +9,7 @@ import React from "react";
 import { LogoutModalProvider } from "@/context/logout-modal-context";
 import { CSPostHogProvider } from "@/app/posthog";
 import Script from "next/script";
+import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
   title: "Melanin Kapital | Neo-Bank",
@@ -68,10 +69,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <Script id="hotjar" strategy="beforeInteractive">
-          {`
+    <ClerkProvider>
+      <html lang="en">
+        <head>
+          <Script id="hotjar" strategy="beforeInteractive">
+            {`
             (function (c, s, q, u, a, r, e) {
                 c.hj=c.hj||function(){(c.hj.q=c.hj.q||[]).push(arguments)};
                 c._hjSettings = { hjid: a };
@@ -82,25 +84,26 @@ export default function RootLayout({
                 r.appendChild(e);
             })(window, document, 'https://static.hj.contentsquare.net/c/csq-', '.js', 5294338);
           `}
-        </Script>
-      </head>
-      <CSPostHogProvider>
-        <body
-          className={cn(
-            "min-h-screen bg-background font-sans antialiased",
-            montreal.className,
-          )}
-        >
-          <EdgeStoreProvider>
-            <Providers>
-              <LogoutModalProvider>
-                {children}
-                <Toaster richColors position={"top-right"} />
-              </LogoutModalProvider>
-            </Providers>
-          </EdgeStoreProvider>
-        </body>
-      </CSPostHogProvider>
-    </html>
+          </Script>
+        </head>
+        <CSPostHogProvider>
+          <body
+            className={cn(
+              "min-h-screen bg-background font-sans antialiased",
+              montreal.className,
+            )}
+          >
+            <EdgeStoreProvider>
+              <Providers>
+                <LogoutModalProvider>
+                  {children}
+                  <Toaster richColors position={"top-right"} />
+                </LogoutModalProvider>
+              </Providers>
+            </EdgeStoreProvider>
+          </body>
+        </CSPostHogProvider>
+      </html>
+    </ClerkProvider>
   );
 }

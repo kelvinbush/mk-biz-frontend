@@ -31,7 +31,12 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import PhoneInput from "react-phone-input-2";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const formSchema = z
   .object({
@@ -43,12 +48,10 @@ const formSchema = z
     birthDate: z
       .string()
       .min(1, "Date of birth is required")
-      // Must be a valid date
       .refine((date) => {
         const d = new Date(date);
         return !isNaN(d.getTime());
       }, "Invalid date of birth")
-      // Cannot be in the future
       .refine((date) => {
         const d = new Date(date);
         const today = new Date();
@@ -56,13 +59,11 @@ const formSchema = z
         today.setHours(0, 0, 0, 0);
         return d <= today;
       }, "Birth date cannot be in the future")
-      // Not an outrageous past date
       .refine((date) => {
         const d = new Date(date);
-        const min = new Date(1900, 0, 1); // Jan 1, 1900
+        const min = new Date(1900, 0, 1);
         return d >= min;
       }, "Please enter a realistic date of birth")
-      // Age bounds: 18 to 120
       .refine((date) => {
         const birthDate = new Date(date);
         const today = new Date();
@@ -85,7 +86,12 @@ const formSchema = z
     path: ["confirmPassword"],
   });
 
+const verificationSchema = z.object({
+  code: z.string().min(6, "Please enter the 6-digit code"),
+});
+
 type SignUpFormValues = z.infer<typeof formSchema>;
+type VerificationFormValues = z.infer<typeof verificationSchema>;
 
 interface PasswordRequirement {
   text: string;
@@ -180,10 +186,179 @@ function PasswordStrengthIndicator({ password }: { password: string }) {
   );
 }
 
-export function SignUpForm() {
+// Email Verification Component
+function EmailVerification({
+  email,
+  onVerificationSuccess,
+  onResendCode,
+  isLoading,
+  setIsLoading
+}: {
+  email: string;
+  onVerificationSuccess: () => void;
+  onResendCode: () => void;
+  isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
+}) {
+  const { signUp, setActive } = useSignUp();
+  const [countdown, setCountdown] = useState(600); // 10 minutes
+  const [isResending, setIsResending] = useState(false);
+
+  const verificationForm = useForm<VerificationFormValues>({
+    resolver: zodResolver(verificationSchema),
+    defaultValues: {
+      code: "",
+    },
+  });
+
+  // Countdown timer
+  useState(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  });
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+  };
+
+  const onVerificationSubmit = async (data: VerificationFormValues) => {
+    if (!signUp) return;
+
+    try {
+      setIsLoading(true);
+
+      const completeSignUp = await signUp.attemptEmailAddressVerification({
+        code: data.code,
+      });
+
+      if (completeSignUp.status === "complete") {
+        await setActive({ session: completeSignUp.createdSessionId });
+        onVerificationSuccess();
+        toast.success("Email verified successfully! Welcome aboard!");
+      } else {
+        toast.error("Verification incomplete. Please try again.");
+      }
+    } catch (err: any) {
+      console.error("Verification error:", err);
+      const errorMessage = err.errors?.[0]?.message || "Invalid verification code";
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!signUp) return;
+
+    try {
+      setIsResending(true);
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setCountdown(600); // Reset countdown
+      onResendCode();
+      toast.success("Verification code sent!");
+    } catch (err: any) {
+      console.error("Resend error:", err);
+      toast.error("Failed to resend code. Please try again.");
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  return (
+    <div className="w-full rounded-lg bg-white">
+      <div className="mb-6 md:mb-10 text-center">
+        <img
+          src="/images/check-mail.gif"
+          alt="Email verification"
+          className="mx-auto mb-4 h-24 w-24 md:h-32 md:w-32"
+        />
+        <p className="text-sm font-medium uppercase text-primary-green">
+          Step 2/3
+        </p>
+        <h2 className="text-2xl md:text-4xl font-bold text-midnight-blue">
+          Verify your email
+        </h2>
+        <p className="mt-2 text-lg md:text-2xl text-midnight-blue">
+          We sent a verification code to{" "}
+          <span className="text-primary-green font-medium">{email}</span>
+        </p>
+      </div>
+
+      <Form {...verificationForm}>
+        <form
+          onSubmit={verificationForm.handleSubmit(onVerificationSubmit)}
+          className="space-y-6"
+        >
+          <FormField
+            control={verificationForm.control}
+            name="code"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm md:text-base">
+                  Enter 6-digit verification code
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="000000"
+                    {...field}
+                    className="h-11 md:h-12 text-base text-center text-2xl tracking-widest"
+                    maxLength={6}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button
+            type="submit"
+            className="w-full h-12 md:h-14 text-base"
+            disabled={isLoading}
+            size="lg"
+          >
+            {isLoading ? "Verifying..." : "Verify Email"}
+          </Button>
+        </form>
+      </Form>
+
+      <div className="mt-6 flex flex-col md:flex-row justify-between items-center gap-4 text-sm md:text-base">
+        <p>
+          Code expires in{" "}
+          <span className="text-pink-500 font-medium">{formatTime(countdown)}</span>
+        </p>
+        <p>
+          Didn&apos;t receive the code?{" "}
+          <Button
+            variant="ghost"
+            className="p-0 h-auto text-primary-green underline hover:bg-transparent hover:text-primary-green/80"
+            disabled={isResending || countdown > 0}
+            onClick={handleResendCode}
+          >
+            {isResending ? "Sending..." : "Resend code"}
+          </Button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function ClerkSignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const [currentStep, setCurrentStep] = useState<"signup" | "verification">("signup");
+  const [userEmail, setUserEmail] = useState("");
+  const { isLoaded, signUp } = useSignUp();
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -204,44 +379,95 @@ export function SignUpForm() {
   });
 
   async function onSubmit(values: SignUpFormValues) {
-    if (!isLoaded) {
+    if (!isLoaded || !signUp) {
+      toast.error("Please wait, authentication is loading...");
       return;
     }
 
     try {
       setIsLoading(true);
-      
-      // Start the sign-up process with Clerk
+
+      // Create the user account with Clerk
       await signUp.create({
         emailAddress: values.email,
         password: values.password,
         firstName: values.firstName,
         lastName: values.lastName,
-      });
-
-      // Add the additional fields to publicMetadata
-      await signUp.update({
-        publicMetadata: {
+        unsafeMetadata: {
           gender: values.gender,
           phoneNumber: values.phoneNumber,
-          dob: new Date(values.birthDate).toISOString(),
+          dob: values.birthDate,
         },
       });
 
-      // Prepare verification
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      
-      // Set the user as active if needed or redirect to verification
-      router.push("/check-email");
-      toast.success("Account created successfully. Please verify your email.");
+      // Prepare email verification
+      await signUp.prepareEmailAddressVerification({
+        strategy: "email_code"
+      });
+
+      // Store email and move to verification step
+      setUserEmail(values.email);
+      setCurrentStep("verification");
+
+      toast.success("Account created! Please check your email for verification code.");
     } catch (err: any) {
-      console.error("Error during sign up:", err);
-      toast.error(err?.errors?.[0]?.message || "Failed to create account");
+      console.error("Sign-up error:", err);
+
+      let errorMessage = "Failed to create account. Please try again.";
+
+      if (err.errors && err.errors.length > 0) {
+        const error = err.errors[0];
+
+        // Handle specific error cases
+        if (error.code === "form_identifier_exists") {
+          errorMessage = "An account with this email already exists. Please try signing in instead.";
+        } else if (error.code === "form_password_pwned") {
+          errorMessage = "This password has been compromised. Please choose a different password.";
+        } else if (error.code === "form_password_validation") {
+          errorMessage = "Password doesn't meet requirements. Please check the password criteria.";
+        } else {
+          errorMessage = error.message || errorMessage;
+        }
+      }
+
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   }
 
+  const handleVerificationSuccess = () => {
+    // Redirect to dashboard or next step
+    router.push("/dashboard");
+  };
+
+  const handleResendCode = () => {
+    toast.success("Verification code sent to " + userEmail);
+  };
+
+  if (!isLoaded) {
+    return (
+      <div className="w-full rounded-lg bg-white p-8 text-center">
+        <div className="animate-spin h-8 w-8 border-2 border-primary-green border-t-transparent rounded-full mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading authentication...</p>
+      </div>
+    );
+  }
+
+  // Show verification step
+  if (currentStep === "verification") {
+    return (
+      <EmailVerification
+        email={userEmail}
+        onVerificationSuccess={handleVerificationSuccess}
+        onResendCode={handleResendCode}
+        isLoading={isLoading}
+        setIsLoading={setIsLoading}
+      />
+    );
+  }
+
+  // Show signup form
   return (
     <div className="w-full rounded-lg bg-white">
       <div className="mb-6 md:mb-10">
@@ -268,9 +494,9 @@ export function SignUpForm() {
               <FormItem className="flex-1">
                 <FormLabel className="text-sm md:text-base" required>First name</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="John" 
-                    {...field} 
+                  <Input
+                    placeholder="John"
+                    {...field}
                     className="h-11 md:h-12 text-base"
                   />
                 </FormControl>
@@ -286,9 +512,9 @@ export function SignUpForm() {
               <FormItem>
                 <FormLabel className="text-sm md:text-base" required>Last name</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="Doe" 
-                    {...field} 
+                  <Input
+                    placeholder="Doe"
+                    {...field}
                     className="h-11 md:h-12 text-base"
                   />
                 </FormControl>
@@ -331,7 +557,6 @@ export function SignUpForm() {
                     countryCodeEditable={false}
                     value={value?.replace(/^\+/, "")}
                     onChange={(phone) => {
-                      // Remove the "0" after country code if present
                       const cleanedPhone = phone.replace(/^(\d{3})0/, "$1");
                       onChange(`+${cleanedPhone}`);
                     }}
