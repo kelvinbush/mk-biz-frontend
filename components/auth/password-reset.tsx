@@ -1,12 +1,17 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
 "use client";
+
+import { useState, useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Eye, EyeOff, Check } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSignIn } from "@clerk/nextjs";
+import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
 import {
   Form,
   FormControl,
@@ -16,17 +21,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-import {
-  useForgotPasswordMutation,
-  useNewPasswordMutation,
-  useResetPasswordMutation,
-} from "@/lib/redux/services/auth";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Check, Eye, EyeOff } from "lucide-react";
-import { useFormValidation } from "@/lib/hooks/useFormValidation";
 
 const EmailFormSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -54,32 +48,39 @@ const PasswordFormSchema = z
     path: ["confirmPassword"],
   });
 
+type EmailFormValues = z.infer<typeof EmailFormSchema>;
+type CodeFormValues = z.infer<typeof CodeFormSchema>;
+type PasswordFormValues = z.infer<typeof PasswordFormSchema>;
+
 const PasswordReset = () => {
   const [step, setStep] = useState<"email" | "code" | "password">("email");
   const [timeLeft, setTimeLeft] = useState(600);
   const [userEmail, setUserEmail] = useState("");
-  const [userGuid, setUserGuid] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  const [forgotPassword, { isLoading: isSendingEmail }] =
-    useForgotPasswordMutation();
-  const [resetPassword, { isLoading: isVerifyingCode }] =
-    useResetPasswordMutation();
-  const [newPassword, { isLoading: isSettingPassword }] =
-    useNewPasswordMutation();
-
+  const [isLoading, setIsLoading] = useState(false);
+  
   const router = useRouter();
+  const { isLoaded, signIn } = useSignIn();
 
-  const emailForm = useForm<z.infer<typeof EmailFormSchema>>({
+  // Email form
+  const emailForm = useForm<EmailFormValues>({
     resolver: zodResolver(EmailFormSchema),
+    defaultValues: {
+      email: "",
+    },
   });
 
-  const codeForm = useForm<z.infer<typeof CodeFormSchema>>({
+  // Code verification form
+  const codeForm = useForm<CodeFormValues>({
     resolver: zodResolver(CodeFormSchema),
+    defaultValues: {
+      code: "",
+    },
   });
 
-  const passwordForm = useForm<z.infer<typeof PasswordFormSchema>>({
+  // New password form
+  const passwordForm = useForm<PasswordFormValues>({
     resolver: zodResolver(PasswordFormSchema),
     defaultValues: {
       password: "",
@@ -87,11 +88,13 @@ const PasswordReset = () => {
     },
   });
 
-  const { isValid: isEmailFormValid } = useFormValidation(emailForm);
-  const { isValid: isCodeFormValid } = useFormValidation(codeForm);
-  const { isValid: isPasswordFormValid } = useFormValidation(passwordForm);
+  // Form validation states
+  const isEmailFormValid = emailForm.formState.isValid;
+  const isCodeFormValid = codeForm.formState.isValid;
+  const isPasswordFormValid = passwordForm.formState.isValid;
 
-  useEffect(() => {
+  // Timer for code expiration
+  useState(() => {
     let timer: NodeJS.Timeout;
     if (step === "code" && timeLeft > 0) {
       timer = setInterval(() => {
@@ -99,108 +102,29 @@ const PasswordReset = () => {
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [step, timeLeft]);
+  });
 
-  const handleEmailSubmit = async (data: z.infer<typeof EmailFormSchema>) => {
-    setUserEmail(data.email);
-    toast.promise(forgotPassword(data).unwrap(), {
-      loading: "Sending reset instructions...",
-      success: (response) => {
-        setUserGuid(response.guid);
-        setStep("code");
-        return "Reset instructions sent successfully";
-      },
-      error: (err) => {
-        return err.data?.message || "An error occurred";
-      },
-    });
-  };
-
-  const handleCodeSubmit = (data: z.infer<typeof CodeFormSchema>) => {
-    if (!userGuid) {
-      toast.error("Session expired. Please try again.");
-      return;
-    }
-
-    toast.promise(
-      resetPassword({
-        code: data.code,
-        guid: userGuid,
-      }).unwrap(),
-      {
-        loading: "Validating verification code...",
-        success: () => {
-          setStep("password");
-          return "Code verified successfully";
-        },
-        error: (err) => {
-          return err.data?.message || "Invalid verification code";
-        },
-      },
-    );
-  };
-
-  const handlePasswordSubmit = (values: z.infer<typeof PasswordFormSchema>) => {
-    if (!userGuid) {
-      toast.error("Session expired. Please try again.");
-      return;
-    }
-
-    toast.promise(
-      newPassword({
-        password: values.password,
-        personalGuid: userGuid,
-      }).unwrap(),
-      {
-        loading: "Setting new password...",
-        success: () => {
-          router.push("/sign-in");
-          return "Password reset successfully";
-        },
-        error: (err) => {
-          return err.data?.message || "Failed to set new password";
-        },
-      },
-    );
-  };
-
-  const handleResendCode = () => {
-    if (userEmail) {
-      setTimeLeft(600);
-      toast.promise(forgotPassword({ email: userEmail }).unwrap(), {
-        loading: "Resending verification code...",
-        success: (response) => {
-          setUserGuid(response.guid);
-          return "New verification code sent";
-        },
-        error: "Failed to resend code",
-      });
-    }
-  };
-
+  // Format time for display
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${minutes}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
+  // Password requirements
   const requirements = [
     { label: "8 Char", test: (val: string) => val.length >= 8 },
-    {
-      label: "1 Uppercase",
-      test: (val: string) => /[A-Z]/.test(val),
-    },
+    { label: "1 Uppercase", test: (val: string) => /[A-Z]/.test(val) },
     { label: "1 Lowercase", test: (val: string) => /[a-z]/.test(val) },
-    {
-      label: "1 Digit",
-      test: (val: string) => /[0-9]/.test(val),
-    },
+    { label: "1 Digit", test: (val: string) => /[0-9]/.test(val) },
     { label: "1 Special", test: (val: string) => /[^A-Za-z0-9]/.test(val) },
   ];
 
-  // Define password UI requirements at top-level (hooks must not be conditional)
+  // Watch password fields for UI validation
   const watchPassword = passwordForm.watch("password");
   const watchConfirm = passwordForm.watch("confirmPassword");
+  
+  // UI requirements with password match check
   const uiRequirements = useMemo(
     () => [
       ...requirements,
@@ -215,6 +139,149 @@ const PasswordReset = () => {
     [requirements, watchPassword, watchConfirm],
   );
 
+  // Handle email submission
+  const handleEmailSubmit = async (values: EmailFormValues) => {
+    if (!isLoaded || !signIn) {
+      toast.error("Authentication system is not ready");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setUserEmail(values.email);
+
+      // Start the password reset process with Clerk
+      await signIn.create({
+        strategy: "reset_password_email_code",
+        identifier: values.email,
+      });
+
+      // Move to code verification step
+      setStep("code");
+      setTimeLeft(600); // Reset timer to 10 minutes
+      toast.success("Reset instructions sent successfully");
+    } catch (err: any) {
+      console.error("Password reset error:", err);
+      
+      let errorMessage = "Failed to send reset instructions";
+      if (err.errors && err.errors.length > 0) {
+        errorMessage = err.errors[0].message || errorMessage;
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle code verification
+  const handleCodeSubmit = async (values: CodeFormValues) => {
+    if (!isLoaded || !signIn) {
+      toast.error("Authentication system is not ready");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Attempt to verify the code
+      await signIn.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code: values.code,
+      });
+
+      // Move to password reset step
+      setStep("password");
+      toast.success("Code verified successfully");
+    } catch (err: any) {
+      console.error("Code verification error:", err);
+      
+      let errorMessage = "Invalid verification code";
+      if (err.errors && err.errors.length > 0) {
+        errorMessage = err.errors[0].message || errorMessage;
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle password reset
+  const handlePasswordSubmit = async (values: PasswordFormValues) => {
+    if (!isLoaded || !signIn) {
+      toast.error("Authentication system is not ready");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Reset the password
+      await signIn.resetPassword({
+        password: values.password,
+      });
+
+      // Redirect to main page instead of sign-in page
+      router.push("/");
+      toast.success("Password reset successfully");
+    } catch (err: any) {
+      console.error("Password reset error:", err);
+      
+      let errorMessage = "Failed to reset password";
+      if (err.errors && err.errors.length > 0) {
+        errorMessage = err.errors[0].message || errorMessage;
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle resend code
+  const handleResendCode = async () => {
+    if (!isLoaded || !signIn || !userEmail) {
+      toast.error("Cannot resend code at this time");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Resend the verification code
+      await signIn.create({
+        strategy: "reset_password_email_code",
+        identifier: userEmail,
+      });
+
+      setTimeLeft(600); // Reset timer to 10 minutes
+      toast.success("New verification code sent");
+    } catch (err: any) {
+      console.error("Resend code error:", err);
+      
+      let errorMessage = "Failed to resend code";
+      if (err.errors && err.errors.length > 0) {
+        errorMessage = err.errors[0].message || errorMessage;
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Loading state
+  if (!isLoaded) {
+    return (
+      <div className="w-full rounded-lg bg-white p-8 text-center">
+        <div className="animate-spin h-8 w-8 border-2 border-primary-green border-t-transparent rounded-full mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading authentication...</p>
+      </div>
+    );
+  }
+
+  // Email step
   if (step === "email") {
     return (
       <div className="flex flex-col justify-center gap-2 p-4 md:p-9 text-center font-medium text-midnight-blue w-full max-w-4xl mx-auto">
@@ -250,9 +317,9 @@ const PasswordReset = () => {
               className="w-full h-11 md:h-12 text-base"
               size="lg"
               type="submit"
-              disabled={!isEmailFormValid || isSendingEmail}
+              disabled={!isEmailFormValid || isLoading}
             >
-              Send Reset Instructions
+              {isLoading ? "Sending..." : "Send Reset Instructions"}
             </Button>
           </form>
         </Form>
@@ -266,6 +333,7 @@ const PasswordReset = () => {
     );
   }
 
+  // Code verification step
   if (step === "code") {
     return (
       <div className="flex flex-col">
@@ -315,9 +383,9 @@ const PasswordReset = () => {
                 className="w-full h-11 md:h-12 text-base"
                 size="lg"
                 type="submit"
-                disabled={isVerifyingCode || !isCodeFormValid}
+                disabled={isLoading || !isCodeFormValid}
               >
-                Continue
+                {isLoading ? "Verifying..." : "Continue"}
               </Button>
             </form>
           </Form>
@@ -326,13 +394,14 @@ const PasswordReset = () => {
               variant="ghost"
               className="text-primary-green hover:text-primary-green/80 text-sm md:text-base"
               onClick={() => setStep("email")}
+              disabled={isLoading}
             >
               Change email
             </Button>
             <Button
               variant="ghost"
               className="text-primary-green hover:text-primary-green/80 text-sm md:text-base"
-              disabled={timeLeft > 0 || isVerifyingCode}
+              disabled={timeLeft > 0 || isLoading}
               onClick={handleResendCode}
             >
               Resend Code
@@ -343,8 +412,7 @@ const PasswordReset = () => {
     );
   }
 
-  // Password step
-
+  // Password reset step
   return (
     <div className="flex flex-col justify-center gap-2 p-4 md:p-9 text-midnight-blue">
       <div className="text-center">
@@ -446,9 +514,9 @@ const PasswordReset = () => {
             <Button
               type="submit"
               className="w-full h-11 md:h-12 text-base mt-4"
-              disabled={isSettingPassword || !isPasswordFormValid}
+              disabled={isLoading || !isPasswordFormValid}
             >
-              Reset Password
+              {isLoading ? "Resetting Password..." : "Reset Password"}
             </Button>
           </form>
         </Form>

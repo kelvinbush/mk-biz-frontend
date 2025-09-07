@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Icons } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import React from "react";
+import { useAuth } from "@clerk/nextjs";
 
 const SUPPORT_EMAIL = "support@melaninkapital.com";
 
@@ -35,6 +36,7 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
+
   return (
     <>
       <div className="grid min-h-svh lg:grid-cols-2 grid-cols-1">
@@ -104,7 +106,7 @@ export default function AuthLayout({
               {children}
             </div>
           </div>
-          
+
           {/* Mobile help button - only visible on mobile, positioned at bottom */}
           <div className="lg:hidden flex justify-end px-4 py-3 mt-auto border-t border-gray-100">
             <Button
