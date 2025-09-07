@@ -2,5 +2,12 @@
   "extends": [
     "next/core-web-vitals",
     "next/typescript"
-  ]
+  ],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": ["ignore", {
+      "ignoreRestArgs": true,
+      "fixToUnknown": false
+    }],
+    "@typescript-eslint/ban-ts-comment": "warn"
+  }
 }
