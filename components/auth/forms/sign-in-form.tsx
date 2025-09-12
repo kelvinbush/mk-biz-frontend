@@ -82,11 +82,27 @@ export default function SignInForm() {
     } catch (err: any) {
       console.error("Sign-in error:", err);
       
-      // Handle specific error cases
-      let errorMessage = "Failed to sign in. Please check your credentials.";
-      
+      // Check if error is due to session already existing
       if (err.errors && err.errors.length > 0) {
         const error = err.errors[0];
+        
+        // If session already exists, just redirect to home page
+        if (error.code === "session_exists" || error.message?.includes("session already exists")) {
+          console.log("Session already exists, redirecting...");
+          
+          // Use a more forceful approach to navigation
+          setIsLoading(false); // Make sure to unset loading state first
+          
+          // Try multiple navigation approaches
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 100);
+          
+          return;
+        }
+        
+        // Handle other specific error cases
+        let errorMessage = "Failed to sign in. Please check your credentials.";
         
         if (error.code === "form_identifier_not_found") {
           errorMessage = "No account found with this email address.";
@@ -95,9 +111,11 @@ export default function SignInForm() {
         } else {
           errorMessage = error.message || errorMessage;
         }
+        
+        toast.error(errorMessage);
+      } else {
+        toast.error("Failed to sign in. Please try again.");
       }
-      
-      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

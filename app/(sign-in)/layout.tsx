@@ -4,7 +4,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Icons } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import React from "react";
-import { useAuth } from "@clerk/nextjs";
 
 const SUPPORT_EMAIL = "support@melaninkapital.com";
 
@@ -36,7 +35,6 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-
   return (
     <>
       <div className="grid min-h-svh lg:grid-cols-2 grid-cols-1">

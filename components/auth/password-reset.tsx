@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -60,7 +60,6 @@ const PasswordReset = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const router = useRouter();
   const { isLoaded, signIn } = useSignIn();
 
   // Email form
@@ -94,15 +93,27 @@ const PasswordReset = () => {
   const isPasswordFormValid = passwordForm.formState.isValid;
 
   // Timer for code expiration
-  useState(() => {
-    let timer: NodeJS.Timeout;
-    if (step === "code" && timeLeft > 0) {
+  useEffect(() => {
+    let timer: NodeJS.Timeout | undefined;
+    
+    if (step === "code") {
+      // Set up the timer when entering the code step
       timer = setInterval(() => {
-        setTimeLeft((prevTime) => (prevTime > 0 ? prevTime - 1 : 0));
+        setTimeLeft((prevTime) => {
+          if (prevTime <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prevTime - 1;
+        });
       }, 1000);
     }
-    return () => clearInterval(timer);
-  });
+    
+    // Clean up the timer when the component unmounts or when the step changes
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [step]); // Only depend on step changes
 
   // Format time for display
   const formatTime = (seconds: number) => {
@@ -222,9 +233,18 @@ const PasswordReset = () => {
         password: values.password,
       });
 
-      // Redirect to main page instead of sign-in page
-      router.push("/");
+      // Show success message
       toast.success("Password reset successfully");
+      
+      // Use a more reliable navigation approach
+      console.log("Password reset successful, redirecting to home page...");
+      setIsLoading(false); // Make sure to unset loading state first
+      
+      // Try multiple navigation approaches
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
+      
     } catch (err: any) {
       console.error("Password reset error:", err);
       
@@ -234,7 +254,6 @@ const PasswordReset = () => {
       }
       
       toast.error(errorMessage);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -401,7 +420,7 @@ const PasswordReset = () => {
             <Button
               variant="ghost"
               className="text-primary-green hover:text-primary-green/80 text-sm md:text-base"
-              disabled={timeLeft > 0 || isLoading}
+              disabled={isLoading}
               onClick={handleResendCode}
             >
               Resend Code
